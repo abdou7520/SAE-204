@@ -174,7 +174,7 @@ def insert_station(
             code_bassin, code_cours_eau
         ))
     except sqlite3.IntegrityError as e:
-        print(f"❌ Erreur d’intégrité pour station « {code_station} »: {e}")
+        print(f" Erreur d’intégrité pour station « {code_station} »: {e}")
 
 
 # -------------------------------------------------------------------
