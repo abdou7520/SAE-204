@@ -1,1 +1,9 @@
-
+{% extends 'base.html' %}
+{% block content %}
+<p>Sélectionnez une région :</p>
+<ul>
+{% for region in regions %}
+  <li><a href="/region/{{ region.code_region }}">{{ region.libelle_region }}</a></li>
+{% endfor %}
+</ul>
+{% endblock %}

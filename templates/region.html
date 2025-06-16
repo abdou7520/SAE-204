@@ -1,0 +1,9 @@
+{% extends 'base.html' %}
+{% block content %}
+<p>Départements de la région {{ code }} :</p>
+<ul>
+{% for dep in departements %}
+  <li><a href="/departement/{{ dep.code_departement }}">{{ dep.libelle_departement }}</a></li>
+{% endfor %}
+</ul>
+{% endblock %}

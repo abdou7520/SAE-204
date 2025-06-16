@@ -1,0 +1,9 @@
+{% extends 'base.html' %}
+{% block content %}
+<p>Communes du département {{ code }} (premières) :</p>
+<ul>
+{% for com in communes %}
+  <li>{{ com.libelle_commune }} ({{ com.code_commune }})</li>
+{% endfor %}
+</ul>
+{% endblock %}
