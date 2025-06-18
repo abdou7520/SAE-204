@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>{{ station.libelle_station }} – Détails</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <!-- Chart.js et Luxon pour les graphiques et la gestion des dates -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/luxon@3.4.4/dist/luxon.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-luxon@1.x/dist/chartjs-adapter-luxon.min.js"></script>
+  <style>
+    /* Style pour masquer les éléments de liste supplémentaires */
+    .limited-list li.hidden {
+      display: none;
+    }
+    /* La hauteur pour le graphique en camembert (peut être ajustée) */
+    #ecoulementPieChartStation { /* Nouvel ID pour le camembert sur cette page */
+      height: 400px;
+      width: 100%;
+    }
+  </style>
+</head>
+<body class="bg-gray text-gray">
+  <header class="header">
+    <div class="container header-content">
+      <a href="/" class="logo">
+        <span class="logo-icon">💧</span>
+        Eau France
+      </a>
+      <ul class="nav-menu"> {# Navigation Menu #}
+        <li><a class="nav-link" href="/">Accueil</a></li>
+        <li><a class="nav-link" href="/graphique_global">Graphique Global</a></li> {# Nouvelle entrée de navigation #}
+      </ul>
+    </div>
+  </header>
+
+  <main class="container mt-5">
+    <h1 class="text-primary">{{ station.libelle_station }}</h1>
+    <div class="card p-4">
+      <p><strong>Code :</strong> {{ station.code_station }}</p>
+      <p><strong>Cours d’eau : :</strong> {{ station.libelle_cours_eau }}</p>
+      <p><strong>Commune :</strong> {{ station.libelle_commune }}</p>
+      <p><strong>Département :</strong> {{ station.libelle_departement }}</p>
+      <p><strong>Région :</strong> {{ station.libelle_region }}</p>
+    </div>
+
+    <!-- Section pour le graphique en camembert des types d'écoulement -->
+    <h2 class="text-primary mt-5 mb-3">Distribution des types d'écoulement</h2>
+    <div class="card p-4">
+      {% if observations_data %}
+        <canvas id="ecoulementPieChartStation"></canvas> {# ID mis à jour #}
+      {% else %}
+        <p>Aucune observation disponible pour cette station afin de générer le graphique.</p>
+      {% endif %}
+    </div>
+
+    <!-- Section pour les dernières observations (liste complète avec "Voir plus") -->
+    <h2 class="text-primary mt-5 mb-3">Dernières observations</h2>
+    <div class="card p-4">
+      {% if observations_data %}
+        <ul id="observations-list" class="limited-list">
+          {% for obs in observations_data %}
+            <li>
+              <strong>Date :</strong> {{ obs.date_observation }}<br>
+              <strong>Libellé écoulement :</strong> {{ obs.libelle_ecoulement | default('N/A', true) }}<br>
+              <hr>
+            </li>
+          {% endfor %}
+        </ul>
+        <button class="btn btn-outline btn-sm mt-3 show-more-button" data-target="observations-list">Voir plus d'observations</button>
+      {% else %}
+        <p>Aucune observation disponible pour cette station via l'API Écoulement des cours d'eau.</p>
+      {% endif %}
+    </div>
+
+    <!-- Section pour les dernières campagnes -->
+    <h2 class="text-primary mt-5 mb-3">Dernières campagnes</h2>
+    <div class="card p-4">
+      {% if campagnes_data %}
+        <ul id="campagnes-list" class="limited-list">
+          {% for camp in campagnes_data %}
+            <li>
+              <strong>Date de campagne :</strong> {{ camp.date_campagne }}<br>
+              <strong>Type de campagne :</strong> {{ camp.libelle_type_campagne }}<br>
+              <hr>
+            </li>
+          {% endfor %}
+        </ul>
+        <button class="btn btn-outline btn-sm mt-3 show-more-button" data-target="campagnes-list">Voir plus de campagnes</button>
+      {% else %}
+        <p>Aucune campagne disponible pour cette station via l'API Écoulement des cours d'eau.</p>
+      {% endif %}
+    </div>
+
+    <a href="/" class="btn btn-secondary mt-4">← Retour à la carte</a>
+  </main>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      const observationsData = {{ observations_data | tojson }};
+
+      // --- Logique du graphique en camembert (maintenant dans station.html) ---
+      if (observationsData && observationsData.length > 0) {
+        // Compter les occurrences de chaque type d'écoulement
+        const ecoulementCounts = {};
+        observationsData.forEach(obs => {
+          const type = obs.libelle_ecoulement || 'Non spécifié';
+          ecoulementCounts[type] = (ecoulementCounts[type] || 0) + 1;
+        });
+
+        const labels = Object.keys(ecoulementCounts);
+        const data = Object.values(ecoulementCounts);
+
+        // Définir des couleurs spécifiques pour "Acceptable", "Faible", "Assec", "Non visible", "Visible"
+        // et des couleurs distinctes pour "Non spécifié" et "Observation impossible"
+        const backgroundColors = labels.map(label => {
+          if (label && label.toLowerCase() === 'ecoulement visible acceptable') return '#4CAF50'; // Vert pour Acceptable
+          if (label && label.toLowerCase() === 'ecoulement visible faible') return '#FFC107';    // Ambre pour Faible
+          if (label && label.toLowerCase() === 'assec') return '#F44336'; // Rouge pour Assec
+          if (label && label.toLowerCase() === 'ecoulement non visible') return '#FF9800'; // Orange foncé
+          if (label && label.toLowerCase() === 'ecoulement visible') return '#8BC34A'; // Vert clair
+          if (label && label.toLowerCase() === 'non spécifié') return '#607D8B'; // Bleu-gris pour Non spécifié
+          if (label && label.toLowerCase() === 'observation impossible') return '#795548'; // Marron pour Observation impossible
+          return '#BDBDBD'; // Gris clair pour toute autre valeur inattendue
+        });
+
+        const ctxPie = document.getElementById('ecoulementPieChartStation').getContext('2d');
+        new Chart(ctxPie, {
+          type: 'pie',
+          data: {
+            labels: labels,
+            datasets: [{
+              data: data,
+              backgroundColor: backgroundColors,
+              borderColor: '#fff',
+              borderWidth: 1
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: {
+                position: 'top',
+              },
+              title: {
+                display: true,
+                text: 'Distribution des Types d\'Écoulement'
+              },
+              tooltip: {
+                callbacks: {
+                  label: function(context) {
+                    const label = context.label;
+                    const value = context.raw;
+                    const total = context.dataset.data.reduce((sum, val) => sum + val, 0);
+                    const percentage = (total > 0 ? (value / total) * 100 : 0).toFixed(1);
+                    return `${label}: ${value} (${percentage}%)`;
+                  }
+                }
+              }
+            }
+          }
+        });
+      } else {
+        document.getElementById('ecoulementPieChartStation').closest('.card').innerHTML = '<p>Aucune donnée d\'écoulement disponible pour générer le graphique.</p>';
+      }
+
+      // --- Logique "Voir plus" pour les listes ---
+      const initialLimit = 5;
+
+      function applyShowMoreLogic(listId) {
+        const list = document.getElementById(listId);
+        if (!list) return;
+
+        const items = list.querySelectorAll('li');
+        const showMoreButton = document.querySelector(`.show-more-button[data-target="${listId}"]`);
+
+        if (items.length > initialLimit) {
+          for (let i = initialLimit; i < items.length; i++) {
+            items[i].classList.add('hidden');
+          }
+          if (showMoreButton) {
+            showMoreButton.style.display = 'block';
+          }
+        } else {
+          if (showMoreButton) {
+            showMoreButton.style.display = 'none';
+          }
+        }
+
+        if (showMoreButton) {
+          showMoreButton.addEventListener('click', function() {
+            items.forEach(item => {
+              item.classList.remove('hidden');
+            });
+            this.style.display = 'none';
+          });
+        }
+      }
+
+      applyShowMoreLogic('observations-list');
+      applyShowMoreLogic('campagnes-list');
+    });
+  </script>
+</body>
+</html>
